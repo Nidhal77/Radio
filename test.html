@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test iPad</title>
+<style>
+body { margin: 0; padding: 20px; background: #2b1810; color: #f6e7c4; font-family: Helvetica, Arial, sans-serif; font-size: 18px; line-height: 1.4; }
+h1 { color: #f08a24; font-size: 26px; margin: 0 0 14px; }
+li { margin-bottom: 8px; }
+.ok { color: #7dff6a; font-weight: bold; }
+.ko { color: #ff6a4a; font-weight: bold; }
+.wait { color: #e9b03b; font-weight: bold; }
+button { font-size: 18px; padding: 10px 16px; margin: 6px 6px 0 0; border: 0; border-radius: 6px; background: #f08a24; color: #2b1810; font-weight: bold; }
+a { color: #e9b03b; }
+#ua { font-size: 13px; color: #c9b48f; margin-top: 18px; word-wrap: break-word; }
+</style>
+</head>
+<body>
+<h1>Test de l'iPad</h1>
+<ol id="log">
+  <li><span class="ok">OK</span> Étape 1 : la page s'affiche.</li>
+  <li id="js"><span class="ko">NON</span> Étape 2 : le JavaScript ne s'est pas lancé.</li>
+</ol>
+<p>Test du son :</p>
+<button id="b1">Son FIP (http)</button>
+<button id="b2">Son Radio Classique (https)</button>
+<button id="stop">Stop</button>
+<p id="audioState"></p>
+<p>Ensuite, essaie la version légère du poste : <a href="lite.html">lite.html</a></p>
+<p id="ua"></p>
+
+<script>
+var log = document.getElementById("log");
+function add(cls, label, text) {
+  var li = document.createElement("li");
+  li.innerHTML = '<span class="' + cls + '">' + label + '</span> ' + text;
+  log.appendChild(li);
+  return li;
+}
+function setLine(li, cls, label, text) { li.innerHTML = '<span class="' + cls + '">' + label + '</span> ' + text; }
+
+document.getElementById("js").innerHTML = '<span class="ok">OK</span> Étape 2 : le JavaScript fonctionne.';
+document.getElementById("ua").innerHTML = "Appareil : " + navigator.userAgent + "<br>Écran : " + screen.width + " × " + screen.height;
+
+try {
+  window.localStorage.setItem("test", "1");
+  add(window.localStorage.getItem("test") === "1" ? "ok" : "ko", window.localStorage.getItem("test") === "1" ? "OK" : "NON", "Étape 3 : mémoire du navigateur (favoris).");
+} catch (e) { add("ko", "NON", "Étape 3 : mémoire du navigateur indisponible (navigation privée ?)."); }
+
+try {
+  var big = [];
+  for (var i = 0; i < 4000; i++) big.push(["abcdef" + i, "Station numéro " + i, "http://exemple.fr/flux" + i, "FR", "MP3", 128, "pop,rock", ""]);
+  var t0 = new Date().getTime();
+  var parsed = JSON.parse(JSON.stringify(big));
+  add("ok", "OK", "Étape 4 : gros catalogue lu en " + (new Date().getTime() - t0) + " ms (" + parsed.length + " stations).");
+} catch (e) { add("ko", "NON", "Étape 4 : " + e.message); }
+
+function testXHR(label, url) {
+  var li = add("wait", "…", label + " : en cours");
+  var x = new XMLHttpRequest();
+  try {
+    x.open("GET", url, true);
+    x.timeout = 12000;
+    x.onload = function () { setLine(li, x.status === 200 ? "ok" : "ko", x.status === 200 ? "OK" : "NON", label + " (code " + x.status + ")"); };
+    x.onerror = function () { setLine(li, "ko", "NON", label + " : connexion refusée"); };
+    x.ontimeout = function () { setLine(li, "ko", "NON", label + " : délai dépassé"); };
+    x.send();
+  } catch (e) { setLine(li, "ko", "NON", label + " : " + e.message); }
+}
+testXHR("Étape 5 : annuaire des radios en https", "https://de1.api.radio-browser.info/json/stats");
+testXHR("Étape 6 : annuaire des radios en http", "http://de1.api.radio-browser.info/json/stats");
+
+var audio = new Audio();
+var st = document.getElementById("audioState");
+function play(url, name) {
+  st.innerHTML = '<span class="wait">Connexion à ' + name + '…</span>';
+  audio.src = url;
+  try { audio.load(); } catch (e) {}
+  var p = audio.play();
+  if (p && p.catch) p.catch(function () {});
+}
+audio.addEventListener("playing", function () { st.innerHTML = '<span class="ok">Ça joue !</span>'; });
+audio.addEventListener("error", function () { st.innerHTML = '<span class="ko">Le son ne passe pas (erreur ' + (audio.error ? audio.error.code : "?") + ').</span>'; });
+document.getElementById("b1").onclick = function () { play("http://icecast.radiofrance.fr/fip-hifi.aac", "FIP"); };
+document.getElementById("b2").onclick = function () { play("https://radioclassique.ice.infomaniak.ch/radioclassique-high.mp3", "Radio Classique"); };
+document.getElementById("stop").onclick = function () { audio.pause(); st.innerHTML = "Arrêté."; };
+</script>
+</body>
+</html>
